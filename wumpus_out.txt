@@ -1,0 +1,7 @@
+Dimensions: 4 x 4
+Maximum number of steps: 50
+Number of trials: 3
+Random agent location: False
+Random number seed: 191703
+Output filename: wumpus_out.txt
+Non-Deterministic Behavior: True
