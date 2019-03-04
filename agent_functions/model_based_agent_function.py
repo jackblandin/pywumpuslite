@@ -420,3 +420,4 @@ class AgentFunction:
         self.last_action = action
         if action == Action.SHOOT:
             self.has_arrow = False
+

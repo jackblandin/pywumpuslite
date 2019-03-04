@@ -25,3 +25,7 @@ def print_action(action):
     if action == END_TRIAL:
         return 'END_TRIAL'
     raise ValueError('Invalid action: {}'.format(action))
+
+
+def print_actions(actions):
+    return [print_action(a) for a in actions]

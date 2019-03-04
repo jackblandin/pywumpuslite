@@ -6,11 +6,14 @@ from environment import Environment
 from simulation import Simulation
 
 
+NUM_PITS = 2
+NUM_WUMPI = 1
+
 WORLD_SIZE = 4
 NUM_TRIALS = 100
 MAX_STEPS = 50
 RANDOM_AGENT_LOC = False
-NON_DETERMINISTIC_MODE = True
+NON_DETERMINISTIC_MODE = False
 RANDOM_WORLD = True
 SEED = randint(-1000000, 1000000)
 OUT_FILENAME = 'wumpus_output.txt'
@@ -52,6 +55,8 @@ def run_application(world_size=WORLD_SIZE, max_steps=MAX_STEPS,
 
     # use as return value for debugging
     last_wumpus_env = None
+
+    gold_out_writer = open('gold_output.txt', 'w')
 
     for i in range(len(trial_scores)):
         trial = Simulation(wumpus_env, max_steps, out_writer,
@@ -145,9 +150,6 @@ def _generate_random_wumpus_world(out_writer, size, random_agent_loc):
     new_world = np.full((size, size, 4), ' ')
     occupied = np.full((size, size), False)
 
-    pits = 2
-    wumpii = 1
-
     # default agent location and orientation
     agent_xloc = 0
     agent_yloc = 0
@@ -167,7 +169,7 @@ def _generate_random_wumpus_world(out_writer, size, random_agent_loc):
 
     # pit generation
     pit_occupied = np.full((size, size), False)  # no overlapping pits
-    for i in range(pits):
+    for i in range(NUM_PITS):
         x = randint(0, size-1)
         y = randint(0, size-1)
         while (x == agent_xloc and y == agent_yloc) or pit_occupied[x][y]:
@@ -179,7 +181,7 @@ def _generate_random_wumpus_world(out_writer, size, random_agent_loc):
 
     # wumpus generation
     wumpus_occupied = np.full((size, size), False)  # no overlapping wumpii
-    for i in range(wumpii):
+    for i in range(NUM_WUMPI):
         x = randint(0, size-1)
         y = randint(0, size-1)
         while (x == agent_xloc and y == agent_yloc) or wumpus_occupied[x][y]:
@@ -194,6 +196,12 @@ def _generate_random_wumpus_world(out_writer, size, random_agent_loc):
     y = randint(0, size-1)
     new_world[x][y][2] = 'G'
     occupied[x][y] = True
+
+    # DEBUG
+    # new_world[3][0][0] = 'P'
+    # new_world[1][2][0] = 'P'
+    # new_world[1][1][1] = 'W'
+    # new_world[1][3][2] = 'G'
 
     return new_world
 
