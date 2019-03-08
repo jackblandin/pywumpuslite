@@ -11,13 +11,13 @@ git clone git@github.com:jackblandin/pywumpuslite.git && cd pywumpuslite
 ```
 
 ```sh
-pip install -r requirements.txt
+pip3 install -r requirements.txt
 ```
 
 ## Run via command line
 
 ```sh
-python world_application.py -t 100
+python3 world_application.py -t 100
 ```
 
 #### Optional arguments

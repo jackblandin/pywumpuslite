@@ -305,14 +305,6 @@ class AgentFunction:
                     (y == 0 and d == 'S')):
                     print('removing {} from possible actions since agent would face a wall.'.format(Action.print_action(a)))
                     continue
-                # Remove actions that result in agent facing a high death prob
-                # forward_loc = _forward_loc(l, d, self.WORLD_SIZE)
-                # if forward_loc is not None:
-                #     fx, fy = forward_loc
-                #     # TODO debug below lines not working
-                #     if self.D[fx][fy] > DEATH_PROB_THRESH:
-                #         print('removing {} from possible actions since agent would face high death prob.'.format(Action.print_action(a)))
-                #         continue
             approved_actions.append(a)
             approved_new_locs.append(l)
             approved_new_dirs.append(d)
@@ -330,31 +322,38 @@ class AgentFunction:
             action_death_probs.append(death_prob)
             action_gold_probs.append(gold_prob)
 
-        # TODO 02/22/2019 - prefer a loc where no Percept has been received yet (unexplored loc)
+        # Remove GO_FORWARD actions with high death prob
+        if Action.GO_FORWARD in approved_actions:
+            go_forw_idx = approved_actions.index(Action.GO_FORWARD)
+            if (action_death_probs[go_forw_idx] >= DEATH_PROB_THRESH):
+                del approved_actions[go_forw_idx]
+                del approved_new_locs[go_forw_idx]
+                del approved_new_dirs[go_forw_idx]
+                print('Removing GO_FORWARD since the death prob is too high.')
 
-        if approved_actions[0] == Action.GO_FORWARD and action_death_probs[0] < DEATH_PROB_THRESH:
+        # Preference order:
+        #   1. GO_FORWARD
+        #   2. TURN LEFT/RIGHT
+        if Action.GO_FORWARD in approved_actions:
             print('Moving forward since path is clear.')
-            return approved_actions[0]
-        elif approved_actions[0] == Action.GO_FORWARD and len(approved_actions) == 1 :
-            print('No safe move, returning NO OP')
-            return Action.NO_OP
-        # If option to turn left or right, turn in the direction with lower death prob
+            return Action.GO_FORWARD
         elif len(approved_actions) == 2 and Action.TURN_LEFT in approved_actions and Action.TURN_RIGHT in approved_actions:
-            min_idx = np.argmin(action_death_probs)
-            print('min_idx: {}'.format(min_idx))
-            print('approved_actions[min_idx]: {}'.format(approved_actions[min_idx]))
-            return approved_actions[min_idx]
-        elif len(approved_actions) == 1:
-            print('Returning only action in approved actions.')
-            return approved_actions[0]
+            # TODO: If faced with both left and right options, choose action that
+            # results in facing a lower death probablity
+            # min_idx = np.argmin(action_death_probs)
+            # print('min_idx: {}'.format(min_idx))
+            # print('approved_actions[min_idx]: {}'.format(approved_actions[min_idx]))
+            # return approved_actions[min_idx]
+
+            # Randomly choose b/w left, and right
+            return np.random.choice(approved_actions, p=[.5, .5])
         else:
-            # Randomly choose between stationary strategies (turn, no opp).
-            print('approved_actions: {}'.format(Action.print_actions(approved_actions)))
-            turn_prob = (1-NO_OPP_PROB)/(len(approved_actions)-1)
-            stationary_action_probs = np.full(np.shape(approved_actions), turn_prob)
-            stationary_action_probs[-1] = NO_OPP_PROB
-            stationary_actions = approved_actions[1:] + [Action.NO_OP]
-            return np.random.choice(stationary_actions, p=stationary_action_probs)
+            if len(approved_actions) > 1:
+                print('approved_actions: {}'.format(approved_actions))
+                raise Exception('Should never reach here with more than one approved action')
+            else:
+                print('Returning the only approved action')
+                return approved_actions[0]
 
     def _possible_actions(self):
         """Determines possible actions."""
