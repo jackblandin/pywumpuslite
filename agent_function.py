@@ -74,6 +74,56 @@ def _forward_loc(agent_loc, agent_dir, world_size):
         else:
             return None
 
+def _new_agent_state(agent_loc, agent_dir, world_size, action):
+    """Predicts new agent state based on action."""
+    new_agent_loc = copy.copy(agent_loc)
+    new_agent_dir = copy.copy(agent_dir)
+    x, y = agent_loc
+    if action == Action.GO_FORWARD:
+        if agent_dir == 'N':
+            if y < world_size-1:
+                new_agent_loc[1] += 1
+        elif agent_dir == 'E':
+            if x < world_size-1:
+                new_agent_loc[0] += 1
+        elif agent_dir == 'S':
+            if y > 0:
+                new_agent_loc[1] -= 1
+        elif agent_dir == 'W':
+            if x > 0:
+                new_agent_loc[0] -= 1
+    elif action == Action.TURN_LEFT:
+        if agent_dir == 'N':
+            new_agent_dir = 'W'
+        elif agent_dir == 'E':
+            new_agent_dir = 'N'
+        elif agent_dir == 'S':
+            new_agent_dir = 'E'
+        elif agent_dir == 'W':
+            new_agent_dir = 'S'
+    elif action == Action.TURN_RIGHT:
+        if agent_dir == 'N':
+            new_agent_dir = 'E'
+        elif agent_dir == 'E':
+            new_agent_dir = 'S'
+        elif agent_dir == 'S':
+            new_agent_dir = 'W'
+        elif agent_dir == 'W':
+            new_agent_dir = 'N'
+    return new_agent_loc, new_agent_dir
+
+
+def _possible_new_locs_and_dirs(agent_loc, agent_dir, world_size, possible_actions):
+    """Returns respective agent locations and directons for each action taken."""
+    possible_new_locs = []
+    possible_new_dirs = []
+    for a in possible_actions:
+        # find resulting agent location and direction
+        new_loc, new_dir = _new_agent_state(agent_loc, agent_dir, world_size, a)
+        possible_new_locs.append(new_loc)
+        possible_new_dirs.append(new_dir)
+    return possible_new_locs, possible_new_dirs
+
 
 def _recompute_probs_after_removal(P):
     _sum = np.sum(P)
@@ -276,7 +326,8 @@ class AgentFunction:
 
         # Determine possible actions
         possible_actions = self._possible_actions()
-        possible_new_locs, possible_new_dirs = self._possible_new_locs_and_dirs(possible_actions)
+        possible_new_locs, possible_new_dirs = _possible_new_locs_and_dirs(
+            self.agent_loc, self.agent_dir, self.WORLD_SIZE, possible_actions)
 
         # if no possible actions
         if len(possible_actions) == 0:
@@ -284,7 +335,6 @@ class AgentFunction:
             return Action.NO_OP
 
         DEATH_PROB_THRESH = .33
-        NO_OPP_PROB = .01
 
         # Prune useless actions
         approved_actions = []
@@ -363,59 +413,13 @@ class AgentFunction:
             Action.TURN_RIGHT,
         ]
 
-    def _new_agent_state(self, action):
-        """Predicts new agent state based on action."""
-        new_agent_loc = copy.copy(self.agent_loc)
-        new_agent_dir = copy.copy(self.agent_dir)
-        x, y = self.agent_loc
-        if action == Action.GO_FORWARD:
-            if self.agent_dir == 'N':
-                if y < self.WORLD_SIZE-1:
-                    new_agent_loc[1] += 1
-            elif self.agent_dir == 'E':
-                if x < self.WORLD_SIZE-1:
-                    new_agent_loc[0] += 1
-            elif self.agent_dir == 'S':
-                if y > 0:
-                    new_agent_loc[1] -= 1
-            elif self.agent_dir == 'W':
-                if x > 0:
-                    new_agent_loc[0] -= 1
-        elif action == Action.TURN_LEFT:
-            if self.agent_dir == 'N':
-                new_agent_dir = 'W'
-            elif self.agent_dir == 'E':
-                new_agent_dir = 'N'
-            elif self.agent_dir == 'S':
-                new_agent_dir = 'E'
-            elif self.agent_dir == 'W':
-                new_agent_dir = 'S'
-        elif action == Action.TURN_RIGHT:
-            if self.agent_dir == 'N':
-                new_agent_dir = 'E'
-            elif self.agent_dir == 'E':
-                new_agent_dir = 'S'
-            elif self.agent_dir == 'S':
-                new_agent_dir = 'W'
-            elif self.agent_dir == 'W':
-                new_agent_dir = 'N'
-        return new_agent_loc, new_agent_dir
-
-    def _possible_new_locs_and_dirs(self, possible_actions):
-        """Returns respective agent locations and directons for each action taken."""
-        possible_new_locs = []
-        possible_new_dirs = []
-        for a in possible_actions:
-            # find resulting agent location and direction
-            new_loc, new_dir = self._new_agent_state(a)
-            possible_new_locs.append(new_loc)
-            possible_new_dirs.append(new_dir)
-        return possible_new_locs, possible_new_dirs
-
     def _update_state_post_action(self, action):
         ax0, ay0 = self.agent_loc  # original agent loc
         self.Pcpt[ax0][ay0] = 1
-        self.agent_loc, self.agent_dir = self._new_agent_state(action)
+        self.agent_loc, self.agent_dir = _new_agent_state(self.agent_loc,
+                                                          self.agent_dir,
+                                                          self.WORLD_SIZE,
+                                                          action)
         self.last_action = action
         if action == Action.SHOOT:
             self.has_arrow = False
