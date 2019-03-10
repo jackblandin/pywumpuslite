@@ -245,9 +245,12 @@ def _transition_func(state, action, env_config):
 
     new_PcptMap = np.copy(state.PcptMap)
     new_PcptMap[x][y] = 1
+    new_P = np.copy(state.P)
+    new_W = np.copy(state.W)
+    new_G = np.copy(state.G)
     has_arrow = (state.has_arrow) and (action != Action.SHOOT)
-    new_state = BeliefState(new_agent_loc, new_agent_dir, state.P, state.W,
-                            state.G, new_PcptMap, has_arrow, action,
+    new_state = BeliefState(new_agent_loc, new_agent_dir, new_P, new_W,
+                            new_G, new_PcptMap, has_arrow, action,
                             env_config)
     return new_state
 
