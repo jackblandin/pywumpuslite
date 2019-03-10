@@ -52,6 +52,9 @@ def run_application(world_size=WORLD_SIZE, max_steps=MAX_STEPS,
     wumpus_env = Environment(world_size, wumpus_world, out_writer)
 
     trial_scores = np.empty(num_trials)
+    found_gold_count = 0
+    killed_count = 0
+    stuck_count = 0
 
     # use as return value for debugging
     last_wumpus_env = None
@@ -63,6 +66,12 @@ def run_application(world_size=WORLD_SIZE, max_steps=MAX_STEPS,
                            non_deterministic_mode)
         trial.run()
         trial_scores[i] = trial.get_score()
+        if trial.get_did_agent_find_gold():
+            found_gold_count += 1
+        elif trial.get_was_agent_killed():
+            killed_count += 1
+        elif trial.get_was_agent_stuck():
+            stuck_count += 1
 
         out(out_writer, 'Trial number: {}'.format(i+1))
         out(out_writer, '-' * 40)
@@ -90,9 +99,18 @@ def run_application(world_size=WORLD_SIZE, max_steps=MAX_STEPS,
     msg = '\nAverage Score: {}'.format(avg_score)
     out(out_writer, msg)
 
+    msg = '\nAgent Found Gold Count: {}'.format(found_gold_count)
+    out(out_writer, msg)
+
+    msg = 'Agent Killed Count:     {}'.format(killed_count)
+    out(out_writer, msg)
+
+    msg = 'Agent Stuck Count:      {}'.format(stuck_count)
+    out(out_writer, msg)
+
     out_writer.close()
 
-    print('Finished')
+    print('\nFinished')
 
     return last_wumpus_env
 

@@ -20,6 +20,9 @@ class Simulation:
         self.current_score = None
         self.simulation_running = False
         self.last_action = None
+        self.did_agent_find_gold = False
+        self.was_agent_killed = False
+        self.was_agent_stuck = False
 
     def run(self):
         self.current_score = 0
@@ -58,6 +61,8 @@ class Simulation:
 
             step_counter += 1
 
+            last_action_before_end = self.last_action
+
             if (step_counter == self.max_steps or not self.simulation_running):
                 msg = 'Last action: {}'.format(
                     Action.print_action(self.last_action))
@@ -69,17 +74,31 @@ class Simulation:
                 self.last_action = Action.END_TRIAL
 
             if agent.get_has_gold():
+                self.did_agent_find_gold = True
                 msg = '\n{} found the GOLD!'.format(agent.get_name())
                 out(self.out_writer, msg)
 
             if agent.get_is_dead():
+                self.was_agent_killed = True
                 msg = '\n{} is DEAD!'.format(agent.get_name())
                 out(self.out_writer, msg)
+
+            if last_action_before_end == Action.NO_OP:
+                self.was_agent_stuck = True
 
         self._print_end_world(env)
 
     def get_score(self):
         return self.current_score
+
+    def get_did_agent_find_gold(self):
+        return self.did_agent_find_gold
+
+    def get_was_agent_killed(self):
+        return self.was_agent_killed
+
+    def get_was_agent_stuck(self):
+        return self.was_agent_stuck
 
     def _print_end_world(self, env):
         env.print_env()
