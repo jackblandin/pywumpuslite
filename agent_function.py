@@ -206,7 +206,6 @@ def _forward_loc(agent_loc, agent_dir, world_size):
 
 def _transition_func(state, action, env_config):
     """Predicts new agent belief state based on action."""
-    # TODO 03/09/2019 - Compute probability updates
     new_agent_loc = copy.copy(state.agent_loc)
     new_agent_dir = copy.copy(state.agent_dir)
     x, y = state.agent_loc
@@ -373,6 +372,10 @@ class AgentFunction:
         possible_actions = self._possible_actions()
 
         # if no possible actions
+        # TODO 03/10/2019 - Right now, agent never returns NO_OP, since it will
+        # just oscillate b/w turn left/right when it's stuck. If this issue is
+        # not fixed through search, then we should put in a hack to return a
+        # NO_OP when it's stuck oscillating.
         if len(possible_actions) == 0:
             print('No possible actions. Returning NO_OP')
             return Action.NO_OP
@@ -441,13 +444,19 @@ class AgentFunction:
             right_forw_loc = _forward_loc(state_right.agent_loc, state_right.agent_dir, self.env_config.world_size)
             rx, ry = right_forw_loc
 
-            # if state_left.D[lx][ly] > state_right.D[rx][ry]:
-            #     return Action.TURN_LEFT
-            # else:
-            #     return Action.TURN_RIGHT
+            print("TL, TR only options, choosing to turn in direction of facing new state with lower death prob of forward dir.")
+            print("state_left.D[lx][ly] = {}".format(state_left.D[lx][ly]))
+            print("state_right.D[rx][ry] = {}".format(state_right.D[rx][ry]))
+            if state_left.D[lx][ly] < state_right.D[rx][ry]:
+                return Action.TURN_LEFT
+            elif state_left.D[lx][ly] < state_right.D[rx][ry]:
+                return Action.TURN_RIGHT
+            else:
+                # TL/TR have equal prob => Choose LEFT (on avg leads to unexplored loc)
+                return Action.TURN_LEFT
 
             # Randomly choose b/w left, and right
-            return np.random.choice(approved_actions, p=[.5, .5])
+            # return np.random.choice(approved_actions, p=[.5, .5])
         else:
             if len(approved_actions) > 1:
                 print('approved_actions: {}'.format(approved_actions))
