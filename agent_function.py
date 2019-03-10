@@ -338,6 +338,7 @@ class AgentFunction:
                                     self.NUM_GOLD)
         self.belief_state = BeliefState([0,0], 'E', P, W, G, PcptMap, True,
                                         None, self.env_config)
+        self.planned_actions = []
 
     def get_agent_name(self):
         return self.agent_name
@@ -346,11 +347,36 @@ class AgentFunction:
         # PERCEIVE
         self.belief_state.update(percept)
         # THINK
-        action = self._choose_action()
+        # If on path to a specific frontier loc, keep going, otherwise, develop
+        # a new plan.
+        if len(self.planned_actions) == 0:
+            self.planned_actions = self._compute_plan()
+
+        action = self.planned_actions.pop()
+
         # ACT
         self.belief_state = _transition_func(self.belief_state, action,
                                              self.env_config)
         return action
+
+    def _compute_plan(self):
+        """
+        Determines which frontier loc has highest expected value, and returns a
+        sequence of actions to get to this loc.
+        """
+        # TODO 03/10/2019 Add info gathering to Utility function
+        # for each frontier loc
+        #   - recursively loop until depth == max_depth:
+        #       - for each possible percept in that loc
+        #           - _choose_action()
+        #           - for each possible outcome (weighted by probability) (found gold, killed, empty loc)
+        #               - add reward to parent node
+        #               - depth += 1
+        # choose frontier loc with highest expected reward
+        # get path to the chosen frontier loc
+        # execute actions to get to frontier loc
+        actions = [self._choose_action()] # temporary to make sure code structure works
+        return actions
 
     def _choose_action(self):
         """Chooses action based current belief state, which was updated by percept."""
