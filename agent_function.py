@@ -161,6 +161,17 @@ def print_grid(P, precision=3, title=None):
     print()
 
 
+def create_grid_from_locs(locs, world_size=4):
+    """
+    Creates a world_size x world_size grid with 1s for provided locs and zeros
+    for missing locs.
+    """
+    grid = np.zeros((world_size, world_size))
+    for x,y in locs:
+        grid[x][y] = 1
+    return grid
+
+
 def _adjacent_locs(loc, world_size=4):
     """Returns all adjacent locations."""
     adj = []
@@ -336,9 +347,12 @@ class AgentFunction:
                                     self.NUM_PITS,
                                     self.NUM_WUMPI,
                                     self.NUM_GOLD)
+        self.DEATH_PROB_THRESH = .33
         self.belief_state = BeliefState([0,0], 'E', P, W, G, PcptMap, True,
                                         None, self.env_config)
         self.planned_actions = []
+        self.frontier_locs = []
+        self.explored_locs = []
 
     def get_agent_name(self):
         return self.agent_name
@@ -347,13 +361,19 @@ class AgentFunction:
         # PERCEIVE
         self.belief_state.update(percept)
         # THINK
+        if self.belief_state.agent_loc not in self.explored_locs:
+            self.explored_locs.append(self.belief_state.agent_loc)
+        # If arriving in a frontier loc, remove loc from frontier
+        if self.belief_state.agent_loc in self.frontier_locs:
+            self.frontier_locs.remove(self.belief_state.agent_loc)
         # If on path to a specific frontier loc, keep going, otherwise, develop
         # a new plan.
         if len(self.planned_actions) == 0:
             self.planned_actions = self._compute_plan()
-
         action = self.planned_actions.pop()
-
+        print('frontier locs: {}'.format(self.frontier_locs))
+        frontier_grid = create_grid_from_locs(self.frontier_locs)
+        print_grid(frontier_grid, title="Frontier")
         # ACT
         self.belief_state = _transition_func(self.belief_state, action,
                                              self.env_config)
@@ -364,7 +384,32 @@ class AgentFunction:
         Determines which frontier loc has highest expected value, and returns a
         sequence of actions to get to this loc.
         """
+        assert len(self.planned_actions) == 0
+
         # TODO 03/10/2019 Add info gathering to Utility function
+        # TODO 03/10/2019 Sort explored list ahead of time to save on time
+
+        # Compute new frontier locs
+        adj_locs = _adjacent_locs(self.belief_state.agent_loc)
+        for x, y in adj_locs:
+            # Don't include current loc in frontier locs
+            if self.belief_state.agent_loc[0] == x and self.belief_state.agent_loc[1] == y:
+                continue
+            # Don't include if already in explored
+            if [x, y] in self.explored_locs:
+                continue
+            # Don't include if already in frontier locs
+            if [x, y] in self.frontier_locs:
+                continue
+            # Don't include high death prob locs
+            if self.belief_state.D[x][y] >= self.DEATH_PROB_THRESH:
+                continue
+            self.frontier_locs.append([x, y])
+
+        # If no safe frontier locs, return NO OP
+        if len(self.frontier_locs) == 0:
+            return 100 * [Action.NO_OP]
+
         # for each frontier loc
         #   - recursively loop until depth == max_depth:
         #       - for each possible percept in that loc
@@ -375,6 +420,7 @@ class AgentFunction:
         # choose frontier loc with highest expected reward
         # get path to the chosen frontier loc
         # execute actions to get to frontier loc
+
         actions = [self._choose_action()] # temporary to make sure code structure works
         return actions
 
@@ -383,7 +429,6 @@ class AgentFunction:
         # Grab gold if we know the gold is in our current loc
         ax, ay = self.belief_state.agent_loc
         if self.belief_state.G[ax][ay] == 1:
-            print('Glitter => Grabbing')
             return Action.GRAB
 
         # Try to shoot Wumpus if pretty sure that it's in front of agent
@@ -391,7 +436,6 @@ class AgentFunction:
         if forward_loc is not None:
             fx, fy = forward_loc
             if self.belief_state.has_arrow and self.belief_state.W[fx][fy] > .33:
-                print('Shooting')
                 return Action.SHOOT
 
         # Determine possible actions
@@ -406,8 +450,6 @@ class AgentFunction:
             print('No possible actions. Returning NO_OP')
             return Action.NO_OP
 
-        DEATH_PROB_THRESH = .33
-
         # Prune useless actions
         # A transition is essentially just a <initial_state, action, new_state> tuple
         possible_transitions = [Transition(self.belief_state, a, _transition_func(self.belief_state, a, self.env_config)) for a in possible_actions]
@@ -417,7 +459,6 @@ class AgentFunction:
             a = t.action
             l = t.new_state.agent_loc
             d = t.new_state.agent_dir
-            print('a: {}, l: {}, d: {}'.format(a,l,d))
             if self.belief_state.agent_loc == l and self.belief_state.agent_dir == d:
                 print('removing {} from possible actions since agent\' state doesn\'t change'.format(Action.print_action(a)))
                 continue
@@ -443,7 +484,7 @@ class AgentFunction:
             go_forw_idx = approved_actions.index(Action.GO_FORWARD)
             t = approved_transitions[go_forw_idx]
             x, y = t.new_state.agent_loc
-            if (t.new_state.D[x][y] >= DEATH_PROB_THRESH):
+            if (t.new_state.D[x][y] >= self.DEATH_PROB_THRESH):
                 del approved_actions[go_forw_idx]
                 del approved_transitions[go_forw_idx]
                 print('Removing GO_FORWARD since the death prob is too high.')
