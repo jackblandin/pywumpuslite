@@ -121,7 +121,6 @@ class BeliefState():
         P(death) = 1 - (!W)(!P)
         """
         D = 1 - ((1 - self.P)*(1 - self.W))
-        print_grid(D, title='Posterior Death probs')
         return D
 
 
@@ -133,7 +132,7 @@ class Transition():
         self.new_state = new_state
 
 
-def print_grid(P, precision=3, title=None):
+def print_grid(P, precision=2, title=None):
     """Prints a grid of probabilities."""
     if title is not None:
         print('\n' + title)
@@ -161,7 +160,7 @@ def print_grid(P, precision=3, title=None):
     print()
 
 
-def create_grid_from_locs(locs, world_size=4):
+def _create_grid_from_locs(locs, world_size=4):
     """
     Creates a world_size x world_size grid with 1s for provided locs and zeros
     for missing locs.
@@ -371,9 +370,11 @@ class AgentFunction:
         if len(self.planned_actions) == 0:
             self.planned_actions = self._compute_plan()
         action = self.planned_actions.pop()
-        print('frontier locs: {}'.format(self.frontier_locs))
-        frontier_grid = create_grid_from_locs(self.frontier_locs)
+        frontier_grid = _create_grid_from_locs(self.frontier_locs)
+        explored_grid = _create_grid_from_locs(self.explored_locs)
         print_grid(frontier_grid, title="Frontier")
+        print_grid(explored_grid, title="Explored")
+        print_grid(self.belief_state.D, title='Posterior Death probs')
         # ACT
         self.belief_state = _transition_func(self.belief_state, action,
                                              self.env_config)
@@ -406,9 +407,12 @@ class AgentFunction:
                 continue
             self.frontier_locs.append([x, y])
 
+        # TODO 03/10/2019 - this worked, except for when the death threat was
+        # due to a Wumpus, which couldn've been determined by SHOOTing.
+
         # If no safe frontier locs, return NO OP
-        if len(self.frontier_locs) == 0:
-            return 100 * [Action.NO_OP]
+        # if len(self.frontier_locs) == 0:
+        #     return 100 * [Action.NO_OP]
 
         # for each frontier loc
         #   - recursively loop until depth == max_depth:
