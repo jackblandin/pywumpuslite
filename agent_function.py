@@ -190,29 +190,54 @@ def _adjacent_locs(loc, world_size=4):
     return adj
 
 
-def _forward_loc(agent_loc, agent_dir, world_size):
+def _forward_loc(agent_loc, agent_dir, world_size=4):
     """Returns location in front of agent. If facing a wall, return None."""
     x, y = agent_loc
     if agent_dir == 'N':
         if y < world_size-1:
-            return (x, y+1)
+            return [x, y+1]
         else:
             return None
     elif agent_dir == 'E':
         if x < world_size-1:
-            return (x+1, y)
+            return [x+1, y]
         else:
             return None
     elif agent_dir == 'S':
         if y > 0:
-            return (x, y-1)
+            return [x, y-1]
         else:
             return None
     elif agent_dir == 'W':
         if x > 0:
-            return (x-1, y)
+            return [x-1, y]
         else:
             return None
+
+def _turn_left_dir(agent_dir):
+    """Returns new direction after turning left."""
+    if agent_dir == 'N':
+        new_agent_dir = 'W'
+    elif agent_dir == 'E':
+        new_agent_dir = 'N'
+    elif agent_dir == 'S':
+        new_agent_dir = 'E'
+    elif agent_dir == 'W':
+        new_agent_dir = 'S'
+    return new_agent_dir
+
+
+def _turn_right_dir(agent_dir):
+    """Returns new direction after turning right."""
+    if agent_dir == 'N':
+        new_agent_dir = 'E'
+    elif agent_dir == 'E':
+        new_agent_dir = 'S'
+    elif agent_dir == 'S':
+        new_agent_dir = 'W'
+    elif agent_dir == 'W':
+        new_agent_dir = 'N'
+    return new_agent_dir
 
 def _transition_func(state, action, env_config):
     """Predicts new agent belief state based on action."""
@@ -221,37 +246,13 @@ def _transition_func(state, action, env_config):
     x, y = state.agent_loc
     world_size = env_config.world_size
     if action == Action.GO_FORWARD:
-        if state.agent_dir == 'N':
-            if y < world_size-1:
-                new_agent_loc[1] += 1
-        elif state.agent_dir == 'E':
-            if x < world_size-1:
-                new_agent_loc[0] += 1
-        elif state.agent_dir == 'S':
-            if y > 0:
-                new_agent_loc[1] -= 1
-        elif state.agent_dir == 'W':
-            if x > 0:
-                new_agent_loc[0] -= 1
+        forward_loc = _forward_loc(state.agent_loc, state.agent_dir)
+        if forward_loc is not None:
+            new_agent_loc = forward_loc
     elif action == Action.TURN_LEFT:
-        if state.agent_dir == 'N':
-            new_agent_dir = 'W'
-        elif state.agent_dir == 'E':
-            new_agent_dir = 'N'
-        elif state.agent_dir == 'S':
-            new_agent_dir = 'E'
-        elif state.agent_dir == 'W':
-            new_agent_dir = 'S'
+        new_agent_dir = _turn_left_dir(state.agent_dir)
     elif action == Action.TURN_RIGHT:
-        if state.agent_dir == 'N':
-            new_agent_dir = 'E'
-        elif state.agent_dir == 'E':
-            new_agent_dir = 'S'
-        elif state.agent_dir == 'S':
-            new_agent_dir = 'W'
-        elif state.agent_dir == 'W':
-            new_agent_dir = 'N'
-
+        new_agent_dir = _turn_right_dir(state.agent_dir)
     new_PcptMap = np.copy(state.PcptMap)
     new_PcptMap[x][y] = 1
     new_P = np.copy(state.P)
