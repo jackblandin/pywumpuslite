@@ -3,6 +3,102 @@ import numpy as np
 import random
 import copy
 
+##########
+# Search #
+##########
+
+def _path_to_loc(cur_loc, dest_loc, explored_locs):
+    """
+    Using Depth First Search, computes the path from the current loc to the destination loc.
+    Only explored nodes will be used to get there.
+    The object returned will be the path of the Node, which is a sequence of locs.
+    """
+
+    class Node:
+        def __init__(self, parent_node, loc):
+            self.parent_node = parent_node
+            self.loc = loc
+        def path(self):
+            """Builds the path of nodes obtained to get here."""
+            path = [self.loc]
+            if self.parent_node is None:
+                return path
+            else:
+                return self.parent_node.path() + path
+
+    cur_loc_node = Node(None, cur_loc)
+
+    e = []  # explored (note that this is different than explored_locs param)
+    f = []  # frontier
+
+    # Initial goal check
+    if dest_loc == cur_loc:
+        return n.path()
+
+    e.append(cur_loc)
+
+    # Build initial frontier with locs adj. to cur. loc
+    adj_to_cur = _adjacent_locs(cur_loc)
+    for l in (explored_locs + [dest_loc]):
+        if l in adj_to_cur:
+            f.insert(0, Node(cur_loc_node, l))
+
+    def _expand(parent):
+        adj_locs = _adjacent_locs(parent.loc)
+        adj_and_explored_locs = []
+        for l in adj_locs:
+            if (l in explored_locs or l == dest_loc) and l not in e:
+                child = Node(parent, l)
+                adj_and_explored_locs.append(child)
+        return adj_and_explored_locs
+
+    while len(f) > 0:
+        n = f.pop()
+        e.append(n.loc)
+        if n.loc == dest_loc:
+            return n.path()
+        else:
+            f = _expand(n) + f
+
+    print('cur_loc: {}'.format(cur_loc))
+    print('dest_loc: {}'.format(dest_loc))
+    print('explored_locs: {}'.format(explored_locs))
+
+    raise Exception('No action sequence found')
+
+
+def _action_seq_to_adj_loc(cur_loc, cur_dir, dest_loc, actions=None):
+    """Called recursively.
+    Given current loc, current direction, and the destination loc, which must be adjacent to current loc,
+    computes the action sequence needed to get there as well as the final direction.
+    """
+    if actions is None:
+        actions = []
+    if _forward_loc(cur_loc, cur_dir) == dest_loc:
+        # Goal check
+        actions.append(Action.GO_FORWARD)
+        return actions, cur_dir
+    else:
+        # Turn Left (could also turn Right)
+        actions.append(Action.TURN_LEFT)
+        new_dir = _turn_left_dir(cur_dir)
+        # Recurse
+        return _action_seq_to_adj_loc(cur_loc, new_dir, dest_loc, actions)
+
+
+def _action_seq_to_non_adj_loc(cur_loc, cur_dir, dest_loc, explored_locs):
+    """
+    Given current loc, current direction, and the destination loc, computes the action sequence needed to get there.
+    Uses depth first search by calling _path_to_loc.
+    """
+    path = _path_to_loc(cur_loc, dest_loc, explored_locs)
+    d = cur_dir
+    actions = []
+    for idx in range(len(path)-1):
+        actions, d = _action_seq_to_adj_loc(path[idx], d, path[idx+1], actions)
+    return actions
+
+#################
 
 class EnvConfig():
     def __init__(self, world_size, num_pits, num_wumpi, num_gold):
@@ -361,6 +457,17 @@ class AgentFunction:
         # PERCEIVE
         self.belief_state.update(percept)
         # THINK
+        action = self._next_action(percept)
+        # ACT
+        self.belief_state = _transition_func(self.belief_state, action,
+                                             self.env_config)
+        return action
+
+    def _next_action(self, percept):
+        """
+        Computes the next action to take, based on the existing plan. If no
+        plan exists, create one.
+        """
         if self.belief_state.agent_loc not in self.explored_locs:
             self.explored_locs.append(self.belief_state.agent_loc)
         # If arriving in a frontier loc, remove loc from frontier
@@ -369,24 +476,36 @@ class AgentFunction:
         # If on path to a specific frontier loc, keep going, otherwise, develop
         # a new plan.
         if len(self.planned_actions) == 0:
-            self.planned_actions = self._compute_plan()
-        action = self.planned_actions.pop()
+            self.planned_actions = self._compute_plan(percept)
+        print('planned_actions: {}'.format(self.planned_actions))
+        action = self.planned_actions.pop(0)
+        # Print out the frontier and explored grids
         frontier_grid = _create_grid_from_locs(self.frontier_locs)
         explored_grid = _create_grid_from_locs(self.explored_locs)
         print_grid(frontier_grid, title="Frontier")
         print_grid(explored_grid, title="Explored")
         print_grid(self.belief_state.D, title='Posterior Death probs')
-        # ACT
-        self.belief_state = _transition_func(self.belief_state, action,
-                                             self.env_config)
         return action
 
-    def _compute_plan(self):
+
+    def _compute_plan(self, percept):
         """
         Determines which frontier loc has highest expected value, and returns a
         sequence of actions to get to this loc.
         """
         assert len(self.planned_actions) == 0
+
+        # Grab gold if we know the gold is in our current loc
+        ax, ay = self.belief_state.agent_loc
+        if self.belief_state.G[ax][ay] == 1:
+            return [Action.GRAB]
+
+        # Try to shoot Wumpus if pretty sure that it's in front of agent
+        forward_loc = _forward_loc(self.belief_state.agent_loc, self.belief_state.agent_dir, self.WORLD_SIZE)
+        if forward_loc is not None:
+            fx, fy = forward_loc
+            if self.belief_state.has_arrow and self.belief_state.W[fx][fy] > .33:
+                return [Action.SHOOT]
 
         # TODO 03/10/2019 Add info gathering to Utility function
         # TODO 03/10/2019 Sort explored list ahead of time to save on time
@@ -408,12 +527,9 @@ class AgentFunction:
                 continue
             self.frontier_locs.append([x, y])
 
-        # TODO 03/10/2019 - this worked, except for when the death threat was
-        # due to a Wumpus, which couldn've been determined by SHOOTing.
-
         # If no safe frontier locs, return NO OP
-        # if len(self.frontier_locs) == 0:
-        #     return 100 * [Action.NO_OP]
+        if len(self.frontier_locs) == 0:
+            return 100 * [Action.NO_OP]
 
         # for each frontier loc
         #   - recursively loop until depth == max_depth:
@@ -426,7 +542,16 @@ class AgentFunction:
         # get path to the chosen frontier loc
         # execute actions to get to frontier loc
 
-        actions = [self._choose_action()] # temporary to make sure code structure works
+        # For now, arbitrarily choose a frontier loc
+        # NOTE: 03/10/2019 - If the frontier is sorted by Expected Reward, then
+        # we don't need the _choose_action() function, and can just pop from
+        # the frontier
+        f = self.frontier_locs[0]
+        print('selected_frontier_loc: {}'.format(f))
+        actions = _action_seq_to_non_adj_loc(self.belief_state.agent_loc,
+                                             self.belief_state.agent_dir,
+                                             f,
+                                             self.explored_locs)
         return actions
 
     def _choose_action(self):

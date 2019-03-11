@@ -51,6 +51,7 @@ class Simulation:
             out(self.out_writer, msg)
 
             self._handle_action(agent, agent.choose_action(), env)
+            print('\n{}\n'.format(75*'-'))
             env.place_agent(agent)
 
             env.print_env()
