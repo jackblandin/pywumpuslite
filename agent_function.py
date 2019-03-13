@@ -33,8 +33,9 @@ def _path_to_loc(cur_loc, dest_loc, explored_locs):
 
     # Initial goal check
     if dest_loc == cur_loc:
-        return n.path()
+        return cur_loc_node.path()
 
+    # Add current loc to explored
     e.append(cur_loc)
 
     # Build initial frontier with locs adj. to cur. loc
@@ -74,8 +75,8 @@ def _action_seq_to_adj_loc(cur_loc, cur_dir, dest_loc, actions=None):
     """
     if actions is None:
         actions = []
+    # Check for stopping criteria
     if _forward_loc(cur_loc, cur_dir) == dest_loc:
-        # Goal check
         actions.append(Action.GO_FORWARD)
         return actions, cur_dir
     else:
@@ -468,6 +469,7 @@ class AgentFunction:
         Computes the next action to take, based on the existing plan. If no
         plan exists, create one.
         """
+        # Add loc to explored
         if self.belief_state.agent_loc not in self.explored_locs:
             self.explored_locs.append(self.belief_state.agent_loc)
         # If arriving in a frontier loc, remove loc from frontier
@@ -487,11 +489,12 @@ class AgentFunction:
         print_grid(self.belief_state.D, title='Posterior Death probs')
         return action
 
-
     def _compute_plan(self, percept):
-        """
-        Determines which frontier loc has highest expected value, and returns a
-        sequence of actions to get to this loc.
+        """Determines the next sequence of actions to take.
+        1. If glitter => [GRAB]
+        2. If high Wumpus probability => [SHOOT]
+        3. Otherwise, determine which frontier loc has highest expected value,
+           and return a sequence of actions to get to this loc.
         """
         assert len(self.planned_actions) == 0
 
