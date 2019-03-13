@@ -1,4 +1,4 @@
 .ipynb_checkpoints/
 *.txt
 *.pyc
-.my_agent_function
+my_agent_function.py
