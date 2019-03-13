@@ -99,6 +99,18 @@ def _action_seq_to_non_adj_loc(cur_loc, cur_dir, dest_loc, explored_locs):
         actions, d = _action_seq_to_adj_loc(path[idx], d, path[idx+1], actions)
     return actions
 
+
+def _search_heuristic(belief_state, frontier_loc):
+        def manhattan(loc1, loc2):
+            return abs(loc1[0] - loc2[0]) + abs(loc1[1] - loc2[1])
+        al = belief_state.agent_loc
+        fx, fy = frontier_loc
+        d = belief_state.D[fx][fy]
+        m = manhattan(al, frontier_loc)
+        # Only compare manhattan distance if death probabilities are equal
+        return 100*d + m
+
+
 #################
 
 class EnvConfig():
@@ -528,7 +540,20 @@ class AgentFunction:
             # Don't include high death prob locs
             if self.belief_state.D[x][y] >= self.DEATH_PROB_THRESH:
                 continue
-            self.frontier_locs.append([x, y])
+
+            # Sort frontier using
+            # 1. Death probablity
+            # 2. Manhattan distance (city block)
+            inserted = False
+            for idx, f in enumerate(self.frontier_locs):
+                hf = _search_heuristic(self.belief_state, f)
+                h = _search_heuristic(self.belief_state, [x, y])
+                if h < hf:
+                    self.frontier_locs.insert(idx, [x, y])
+                    inserted = True
+                    break
+            if not inserted:
+                self.frontier_locs.append([x, y])
 
         # If no safe frontier locs, return NO OP
         if len(self.frontier_locs) == 0:
@@ -556,6 +581,7 @@ class AgentFunction:
                                              f,
                                              self.explored_locs)
         return actions
+
 
     def _choose_action(self):
         """Chooses action based current belief state, which was updated by percept."""
