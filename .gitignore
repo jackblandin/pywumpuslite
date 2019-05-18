@@ -2,3 +2,4 @@
 *.txt
 *.pyc
 my_agent_function.py
+my_agent_functions/
