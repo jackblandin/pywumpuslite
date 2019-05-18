@@ -575,3 +575,4 @@ class AgentFunction:
             Action.TURN_LEFT,
             Action.TURN_RIGHT,
         ]
+
